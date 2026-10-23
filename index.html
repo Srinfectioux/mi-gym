@@ -90,7 +90,7 @@ label.f input,label.f textarea{display:block;width:100%;margin-top:4px;backgroun
 label.f textarea{resize:vertical;min-height:70px}
 .tip{background:var(--surface-2);border-radius:12px;padding:10px 12px;font-size:15px;margin-top:12px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.btn{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:10px;padding:8px 12px;font-size:15px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.danger{color:var(--accent)}
 .add{width:100%;border:2px dashed var(--line);background:transparent;border-radius:18px;padding:14px;font-weight:600;color:var(--muted);margin-top:4px}
@@ -106,6 +106,20 @@ label.f textarea{resize:vertical;min-height:70px}
 .rest-box{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
 .rest-box p{margin:0 0 8px}
 
+/* Phase selector */
+.phase{display:flex;gap:6px;margin:18px 0 6px}
+.ph{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 4px;text-align:center;font-weight:600;font-size:15px;line-height:1.2}
+.ph small{display:block;font-weight:500;font-size:11px;color:var(--muted);margin-top:2px}
+.ph[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.ph[aria-pressed="true"] small{color:inherit;opacity:.75}
+.wk{font-size:14px;color:var(--muted);margin:4px 0 0}
+.link{border:0;background:none;color:var(--accent);font-weight:600;padding:0;font-size:14px;text-decoration:underline}
+.tag{display:inline-block;font-size:12px;font-weight:600;color:var(--accent);border:1px solid currentColor;border-radius:99px;padding:0 7px;margin-left:6px;vertical-align:2px}
+.cardio{display:flex;gap:12px;align-items:center;margin-top:14px}
+.cardio .ic{font-size:26px;line-height:1}
+.cardio strong{display:block}
+.cardio span{font-size:15px;color:var(--muted)}
+.rule{font-size:14px;color:var(--muted);margin:14px 2px 0}
 .status{font-size:13px;color:var(--muted);text-align:center;margin-top:24px}
 .theme-btn{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:20px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
@@ -120,6 +134,8 @@ label.f textarea{resize:vertical;min-height:70px}
     <h1 id="title"></h1>
     <div class="meter" aria-hidden="true"><span id="bar"></span></div>
     <div class="meter-label" id="barLabel"></div>
+    <div class="phase" id="phase" role="group" aria-label="Fase del plan"></div>
+    <p class="wk" id="wk"></p>
   </header>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="train" aria-selected="true">Entreno</button>
@@ -139,54 +155,71 @@ const DAYS=[
   {k:"jue",s:"J",n:"Jueves"},{k:"vie",s:"V",n:"Viernes"},{k:"sab",s:"S",n:"Sábado"},{k:"dom",s:"D",n:"Domingo"}
 ];
 let uid=0; const nid=()=>"e"+Date.now().toString(36)+(uid++);
-const E=(name,sets,reps,group,tip)=>({id:nid(),name,sets,reps,group,tip,photo:null});
+const E=(name,group,tip,o={})=>({id:nid(),name,group,tip,photo:null,main:!!o.main,fixed:o.fixed||null,ss:!!o.ss});
 
-function defaults(){
+/* Fases del plan: lo que cambia es series, reps, descanso y cardio */
+const PH=[
+  {n:"Base",w:"Sem 1–4",main:["3","10–12"],acc:["3","12"],restM:"60–90 s",restA:"60–90 s",cardio:"15 min de caminata inclinada"},
+  {n:"Fuerza",w:"Sem 5–8",main:["4","6–8"],acc:["3","10"],restM:"90 s",restA:"60 s",cardio:"20 min de caminata inclinada"},
+  {n:"Potencia",w:"Sem 9–12",main:["5","5"],acc:["3","8–10"],restM:"2 min",restA:"45 s",cardio:"15 min caminando + 5 min de intervalos en bici"}
+];
+const PLAN_V=2;
+
+function newRoutine(){
   return {
-    v:1,
-    routine:{
-      lun:{title:"Brazos A",ex:[
-        E("Curl con barra","4","8–10","biceps","Codos pegados al cuerpo. Sube en 1 s, baja en 3 s."),
-        E("Press francés con barra Z","4","8–10","triceps","Baja la barra hacia la frente sin abrir los codos."),
-        E("Curl inclinado con mancuernas","3","10–12","biceps","Banco a 45°. Estira bien el bíceps abajo."),
-        E("Extensión de tríceps en polea (cuerda)","3","10–12","triceps","Abre la cuerda al final y aprieta 1 s."),
-        E("Curl martillo","3","10–12","antebrazo","Agarre neutro: trabaja braquial y antebrazo."),
-        E("Curl de muñeca con barra","3","15","antebrazo","Antebrazos apoyados en el banco, rango completo.")
-      ]},
-      mar:{title:"Pecho y tríceps",ex:[
-        E("Press de banca","4","6–8","pecho","Escápulas juntas, pies firmes. Baja controlado al pecho."),
-        E("Press inclinado con mancuernas","3","8–10","pecho","Banco a 30°. Enfoca la parte alta del pecho."),
-        E("Aperturas en polea","3","12","pecho","Ligera flexión de codos, junta las manos al frente."),
-        E("Fondos en paralelas","3","8–12","triceps","Torso recto para más tríceps; inclínate para más pecho."),
-        E("Extensión sobre la cabeza con mancuerna","3","12","triceps","Estira bien atrás: trabaja la cabeza larga del tríceps.")
-      ]},
-      mie:{title:"Espalda y bíceps",ex:[
-        E("Jalón al pecho (o dominadas)","4","8–10","espalda","Lleva los codos hacia abajo y atrás, pecho arriba."),
-        E("Remo con barra","4","8","espalda","Espalda neutra, tira hacia el ombligo."),
-        E("Remo sentado en polea","3","10–12","espalda","Aprieta las escápulas al final de cada repetición."),
-        E("Face pull","3","15","espalda","Tira hacia la cara abriendo las manos. Cuida tus hombros."),
-        E("Curl concentrado","3","12","biceps","Sin balanceo. Gira la muñeca hacia afuera arriba.")
-      ]},
-      jue:{title:"Pierna y core",ex:[
-        E("Sentadilla","4","8","pierna","Rodillas en línea con los pies, baja hasta donde controles."),
-        E("Peso muerto rumano","3","10","pierna","Cadera atrás, barra pegada a las piernas."),
-        E("Prensa de piernas","3","12","pierna","No bloquees las rodillas arriba."),
-        E("Plancha","3","40 s","core","Glúteos apretados, cuerpo en línea recta."),
-        E("Elevaciones de piernas colgado","3","12","core","Sube controlado, sin balancearte.")
-      ]},
-      vie:{title:"Brazos B y antebrazos",ex:[
-        E("Curl en banco predicador","4","10","biceps","Baja casi hasta estirar el brazo, sin rebotar."),
-        E("Press de banca agarre cerrado","4","8","triceps","Manos al ancho de hombros, codos cerca del cuerpo."),
-        E("Curl araña","3","12","biceps","Pecho apoyado en banco inclinado, brazos colgando."),
-        E("Patada de tríceps","3","12","triceps","Codo fijo arriba, extiende completo y aprieta."),
-        E("Curl inverso con barra Z","3","12","antebrazo","Agarre prono: fortalece antebrazo y braquiorradial."),
-        E("Paseo del granjero","3","40 m","antebrazo","Mancuernas pesadas, hombros atrás, camina firme.")
-      ]},
-      sab:{title:"Descanso",ex:[]},
-      dom:{title:"Descanso",ex:[]}
-    },
-    meals:{}, notes:{}, weights:{}, done:{}
+    lun:{title:"Pecho, hombros y tríceps",ex:[
+      E("Press de banca","pecho","Escápulas juntas y pies firmes. Baja controlado hasta el pecho.",{main:true}),
+      E("Press inclinado con mancuernas","pecho","Banco a 30°. Enfoca la parte alta del pecho."),
+      E("Press militar con mancuernas","hombro","Sentado con respaldo. Sube sin arquear la espalda."),
+      E("Fondos en paralelas (o en máquina)","triceps","Torso recto para trabajar más tríceps."),
+      E("Extensión de tríceps en polea","triceps","Codos pegados al cuerpo; solo se mueve el antebrazo.")
+    ]},
+    mar:{title:"Espalda y bíceps",ex:[
+      E("Jalón al pecho","espalda","Lleva los codos hacia abajo y atrás, pecho arriba.",{main:true}),
+      E("Remo con barra","espalda","Espalda recta, tira la barra hacia el ombligo."),
+      E("Remo con mancuerna a una mano","espalda","Apoya rodilla y mano en el banco. Sube el codo pegado al cuerpo."),
+      E("Curl con barra","biceps","Codos quietos. Sube en 1 s y baja en 3 s."),
+      E("Curl martillo","antebrazo","Agarre neutro: trabaja braquial y antebrazo.")
+    ]},
+    mie:{title:"Brazos",ex:[
+      E("Press de banca agarre cerrado","triceps","Manos al ancho de hombros, codos cerca del cuerpo.",{main:true}),
+      E("Curl con barra Z","biceps","Sin balancearte. Aprieta arriba 1 s.",{ss:true}),
+      E("Extensión de tríceps en polea con cuerda","triceps","Abre la cuerda al final y aprieta 1 s.",{ss:true}),
+      E("Curl con mancuernas","biceps","Gira la muñeca hacia afuera al subir."),
+      E("Paseo del granjero","antebrazo","Mancuernas pesadas, hombros atrás, camina firme.",{fixed:"40 m"})
+    ]},
+    jue:{title:"Pecho, espalda y hombros",ex:[
+      E("Press inclinado con barra","pecho","Banco a 30°. Baja la barra a la parte alta del pecho.",{main:true}),
+      E("Jalón al pecho agarre cerrado","espalda","Agarre estrecho, lleva el agarre hacia el esternón."),
+      E("Press con mancuernas en banco plano","pecho","Baja hasta sentir el estiramiento del pecho."),
+      E("Remo sentado en polea","espalda","Aprieta las escápulas al final de cada repetición."),
+      E("Elevaciones laterales","hombro","Peso ligero. Sube hasta la altura de los hombros.")
+    ]},
+    vie:{title:"Piernas",ex:[
+      E("Sentadilla (o prensa)","pierna","Rodillas en línea con los pies. Baja hasta donde controles.",{main:true}),
+      E("Peso muerto rumano","pierna","Cadera atrás y barra pegada a las piernas."),
+      E("Prensa de piernas","pierna","No bloquees las rodillas arriba."),
+      E("Curl femoral en máquina","pierna","Sube rápido y baja lento."),
+      E("Elevación de talones","pierna","Sube lo más alto posible y aprieta la pantorrilla.",{fixed:"15–20"})
+    ]},
+    sab:{title:"Descanso",ex:[]},
+    dom:{title:"Descanso",ex:[]}
   };
+}
+function mondayISO(d=new Date()){const t=new Date(d.getFullYear(),d.getMonth(),d.getDate());t.setDate(t.getDate()-((t.getDay()+6)%7));return t.toISOString().slice(0,10)}
+function defaults(){
+  return {v:PLAN_V, routine:newRoutine(), planStart:mondayISO(), phase:null, meals:{}, notes:{}, weights:{}, done:{}};
+}
+/* Pasa datos de la versión anterior a la rutina nueva, conservando comidas y notas */
+function migrate(s){
+  if(!s||!s.routine) return defaults();
+  if((s.v||1)<PLAN_V){
+    const d=defaults(); d.meals=s.meals||{}; d.notes=s.notes||{}; return d;
+  }
+  s.meals=s.meals||{}; s.notes=s.notes||{}; s.weights=s.weights||{}; s.done=s.done||{};
+  if(!s.planStart) s.planStart=mondayISO();
+  if(s.phase===undefined) s.phase=null;
+  return s;
 }
 
 /* ---------- Icons ---------- */
@@ -198,6 +231,7 @@ const ICON={
   antebrazo:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 30h22l6-6"/><rect x="30" y="14" width="12" height="18" rx="4"/><path d="M6 22h18"/></svg>',
   pierna:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 4c-2 10-2 18 2 24l-2 14h8l2-14c4-6 4-14 2-24"/></svg>',
   core:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="12" y="6" width="24" height="36" rx="8"/><path d="M24 10v28M14 18h20M14 28h20"/></svg>',
+  hombro:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="12" r="5"/><path d="M8 30c0-8 6-12 16-12s16 4 16 12"/><path d="M12 30v10M36 30v10"/></svg>',
   otro:'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 24h36M10 16v16M16 12v24M38 16v16M32 12v24"/></svg>'
 };
 const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
@@ -207,7 +241,7 @@ const LS="gym-mano-state";
 let state=null, db=null, assets=null, saveT=null, dirty=false;
 function lsGet(){try{const r=localStorage.getItem(LS);return r?JSON.parse(r):null}catch(e){return null}}
 function lsSet(){try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}}
-state=lsGet()||defaults();
+state=migrate(lsGet());
 
 function weekKey(d=new Date()){
   const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
@@ -217,6 +251,22 @@ function weekKey(d=new Date()){
 }
 const WK=weekKey();
 function doneMap(){ if(!state.done[WK]) state.done[WK]={}; return state.done[WK]; }
+function planWeek(){
+  const [y,m,d]=state.planStart.split("-").map(Number);
+  const start=new Date(y,m-1,d), now=new Date(), t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  return Math.max(1,Math.floor((t-start)/(7*864e5))+1);
+}
+function autoPhase(){const w=planWeek();return w<=4?0:w<=8?1:2}
+function curPhase(){return state.phase!=null?state.phase:autoPhase()}
+function presc(e){
+  const P=PH[curPhase()];
+  const base=e.main?P.main:P.acc;
+  return {sets:base[0], reps:e.fixed||base[1], rest:e.main?P.restM:P.restA};
+}
+function metaText(e){
+  const p=presc(e), w=state.weights[e.id];
+  return `${p.sets} series × ${p.reps} · descanso ${p.rest}${w?` · ${w} kg`:""}`;
+}
 function pruneDone(){ const ks=Object.keys(state.done).sort(); while(ks.length>8){delete state.done[ks.shift()];} }
 
 const statusEl=document.getElementById("status");
@@ -244,7 +294,7 @@ function renderWeek(){
     return `<button class="day${i===todayIdx?" today":""}${rest?" rest":""}" data-i="${i}" aria-current="${i===cur}" aria-label="${d.n}${i===todayIdx?", hoy":""}">${d.s}<small>${rest?"—":esc(shortTitle(r.title))}</small></button>`;
   }).join("");
 }
-function shortTitle(t){return t.split(/\s+y\s+|\s/)[0].slice(0,6)}
+function shortTitle(t){return t.split(/[\s,]+/)[0].slice(0,6)}
 
 function renderHero(){
   const d=DAYS[cur], r=state.routine[d.k];
@@ -253,6 +303,15 @@ function renderHero(){
   const total=r.ex.length, dm=doneMap(), n=r.ex.filter(e=>dm[e.id]).length;
   $("#bar").style.width=total?(n/total*100)+"%":"0";
   $("#barLabel").textContent=total?(n===total?"¡Día completado! 🔥":`${n} de ${total} ejercicios hechos`):"Día de descanso";
+  const cp=curPhase();
+  $("#phase").innerHTML=PH.map((p,i)=>`<button class="ph" data-ph="${i}" aria-pressed="${i===cp}">Fase ${i+1}<small>${p.n} · ${p.w}</small></button>`).join("");
+  const w=planWeek(), ap=autoPhase();
+  let txt;
+  if(w===13) txt="Semana 13: semana suave. Baja un poco el peso y recupérate.";
+  else if(w>13) txt=`Semana ${w}: ¡terminaste las 12 semanas! Vuelve a la Fase 2 con más peso.`;
+  else txt=`Semana ${w} de 12 del plan.`;
+  const off=state.phase!=null&&state.phase!==ap&&w<=12;
+  $("#wk").innerHTML=esc(txt)+(off?` Según tu calendario toca la Fase ${ap+1}. <button class="link" data-act="auto">Usar Fase ${ap+1}</button>`:"")+` <button class="link" data-act="restart">Empezar desde la semana 1</button>`;
 }
 
 function photoSrc(p){ if(!p) return null; return p.startsWith("data:")?p:"/_blob/"+p; }
@@ -271,19 +330,16 @@ function renderTrain(){
       <div class="ex-head">
         <button class="thumb" data-act="toggle" aria-label="Ver detalle de ${esc(e.name)}">${src?`<img src="${esc(src)}" alt="">`:(ICON[e.group]||ICON.otro)}</button>
         <button class="ex-main" data-act="toggle" aria-expanded="${open}">
-          <div class="ex-name">${esc(e.name)}</div>
-          <div class="ex-meta">${esc(e.sets)} series × ${esc(e.reps)}${state.weights[e.id]?` · ${esc(state.weights[e.id])} kg`:""}</div>
+          <div class="ex-name">${esc(e.name)}${e.main?'<span class="tag">Principal</span>':""}${e.ss&&curPhase()>0?'<span class="tag">Superserie</span>':""}</div>
+          <div class="ex-meta">${esc(metaText(e))}</div>
         </button>
         <button class="check" data-act="done" aria-pressed="${done}" aria-label="Marcar ${esc(e.name)} como hecho">${CHECK}</button>
       </div>
       <div class="ex-body">
         ${src?`<div class="photo-big"><img src="${esc(src)}" alt="Imagen de referencia de ${esc(e.name)}"></div>`:""}
         ${e.tip?`<div class="tip">💡 ${esc(e.tip)}</div>`:""}
-        <div class="row">
-          <label class="f">Series<input inputmode="numeric" data-field="sets" value="${esc(e.sets)}"></label>
-          <label class="f">Reps<input data-field="reps" value="${esc(e.reps)}"></label>
-          <label class="f">Peso (kg)<input inputmode="decimal" data-field="weight" value="${esc(state.weights[e.id]||"")}" placeholder="—"></label>
-        </div>
+        ${e.ss&&curPhase()>0?`<div class="tip">⚡ Superserie: haz el curl Z y la extensión con cuerda seguidos, sin descanso entre ellos.</div>`:""}
+        <label class="f" style="margin-top:12px">Peso que usaste (kg)<input inputmode="decimal" data-field="weight" value="${esc(state.weights[e.id]||"")}" placeholder="Ej.: 20"></label>
         <label class="f" style="margin-top:10px">Nombre<input data-field="name" value="${esc(e.name)}"></label>
         <label class="f" style="margin-top:10px">Mi nota / técnica<textarea data-field="tip" placeholder="Ej.: subir 2 kg la próxima semana">${esc(e.tip)}</textarea></label>
         <div class="actions">
@@ -294,7 +350,9 @@ function renderTrain(){
         </div>
       </div>
     </article>`;
-  }).join("")+`<button class="add" data-act="add">+ Agregar ejercicio</button>`;
+  }).join("")+`<button class="add" data-act="add">+ Agregar ejercicio</button>`+
+  `<div class="card cardio"><div class="ic" aria-hidden="true">🏃</div><div><strong>Cardio al final</strong><span>${d.k==="vie"?"10 min suaves, o sáltalo si terminas muy cansado":esc(PH[curPhase()].cardio)}</span></div></div>`+
+  `<p class="rule">Regla de oro: cuando completes todas las series con el máximo de repeticiones y buena técnica, súbele 2–2.5 kg la próxima vez.</p>`;
 }
 
 const MEALS=[["desayuno","Desayuno"],["media","Media mañana"],["almuerzo","Almuerzo"],["pre","Antes de entrenar"],["cena","Cena"]];
@@ -323,6 +381,13 @@ function render(){
 }
 
 /* ---------- Events ---------- */
+document.querySelector(".hero").addEventListener("click",e=>{
+  const ph=e.target.closest("[data-ph]");
+  if(ph){const i=+ph.dataset.ph; state.phase=(i===autoPhase())?null:i; save(); render(); return}
+  const b=e.target.closest("[data-act]"); if(!b) return;
+  if(b.dataset.act==="auto"){state.phase=null;save();render()}
+  if(b.dataset.act==="restart"&&confirm("¿Empezar el plan desde la semana 1 esta semana?")){state.planStart=mondayISO();state.phase=null;save();render()}
+});
 $("#week").addEventListener("click",e=>{const b=e.target.closest(".day");if(!b)return;cur=+b.dataset.i;openId=null;render()});
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(!b)return;tab=b.dataset.tab;render()});
 
@@ -333,7 +398,7 @@ $("#panel").addEventListener("click",e=>{
   if(act==="toggle"){openId=openId===ex.id?null:ex.id;render();return}
   if(act==="done"){const dm=doneMap();dm[ex.id]=!dm[ex.id];if(!dm[ex.id])delete dm[ex.id];save();render();return}
   if(act==="add"){
-    const n=E("Nuevo ejercicio","3","10–12","otro","");
+    const n=E("Nuevo ejercicio","otro","");
     r.ex.push(n); if(r.title==="Descanso") r.title="Entreno extra";
     openId=n.id; save(); render();
     setTimeout(()=>{const i=document.querySelector(`[data-id="${n.id}"] [data-field="name"]`);if(i){i.focus();i.select()}},30);
@@ -353,8 +418,8 @@ $("#panel").addEventListener("input",e=>{
   if(f==="weight"){ if(t.value.trim()) state.weights[ex.id]=t.value.trim(); else delete state.weights[ex.id]; }
   else ex[f]=t.value;
   const meta=card.querySelector(".ex-meta"), nm=card.querySelector(".ex-name");
-  meta.textContent=`${ex.sets} series × ${ex.reps}${state.weights[ex.id]?` · ${state.weights[ex.id]} kg`:""}`;
-  nm.textContent=ex.name;
+  meta.textContent=metaText(ex);
+  if(f==="name") nm.firstChild.textContent=ex.name;
   save();
 });
 
@@ -405,7 +470,7 @@ pruneDone(); render(); setStatus("");
   if(!db){setStatus("Guardado en este dispositivo");return}
   try{
     const snap=await db.doc("app/state").get();
-    if(snap.exists && !dirty){ const d=snap.data(); if(d&&d.routine){ state=JSON.parse(JSON.stringify(d)); state.done=state.done||{}; state.meals=state.meals||{}; state.notes=state.notes||{}; state.weights=state.weights||{}; lsSet(); render(); } }
+    if(snap.exists && !dirty){ const d=snap.data(); if(d&&d.routine){ state=migrate(JSON.parse(JSON.stringify(d))); lsSet(); render(); } }
     else if(!snap.exists){ save(); }
     setStatus("Sincronizado");
   }catch(e){ setStatus("Guardado en este dispositivo"); }
